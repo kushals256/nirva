@@ -3,5 +3,8 @@
   "outputDirectory": "frontend",
   "framework": null,
   "installCommand": "npm install --ignore-scripts",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/static/:path*", "destination": "/:path*" },
+    { "source": "/((?!.*\\.).*)", "destination": "/index.html" }
+  ]
 }
