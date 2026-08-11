@@ -1,0 +1,7 @@
+{
+  "name": "nirva",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/inject-config.js"
+  }
+}

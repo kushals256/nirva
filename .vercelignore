@@ -1,0 +1,10 @@
+app/
+requirements.txt
+render.yaml
+data/
+workspace/
+.venv/
+.env
+.env.*
+sample_assignment.pdf
+scripts/generate_sample_pdf.py

@@ -31,6 +31,7 @@ data/
 # Node / Vercel
 node_modules/
 .vercel/
+frontend/.env.local
 
 # Test / cache
 .pytest_cache/
@@ -41,3 +42,4 @@ htmlcov/
 
 # Generated at deploy (Vercel injects API URL)
 frontend/config.js
+.vercel
