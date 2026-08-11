@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nirva — Voice Coding Tutor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script src="/static/config.js"></script>
+</head>
+<body>
+  <div class="ambient">
+    <div class="ambient__noise"></div>
+    <div class="ambient__vignette"></div>
+  </div>
+
+  <header class="nav">
+    <a class="nav__brand display" href="#">Nirva</a>
+    <nav class="nav__links">
+      <a href="#product">Product</a>
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+    </nav>
+    <a class="nav__cta" href="#product">Open tutor</a>
+  </header>
+
+  <!-- Hero — Monologue-style landing -->
+  <section class="hero">
+    <div class="stamp reveal">
+      <span class="stamp__text display">SPEAK · CITE · CODE</span>
+    </div>
+
+    <div class="hero__stage reveal">
+      <h1 class="hero__wordmark display" aria-hidden="true">Nirva</h1>
+
+      <div class="hardware hardware--hero">
+        <div class="hardware__grille" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="hardware__screen">
+          <div class="hardware__wave">
+            <canvas id="waveCanvas" width="400" height="160"></canvas>
+            <div class="hardware__dither"></div>
+          </div>
+          <a href="#product" class="hardware__cta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            Open tutor
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <p class="hero__tagline display reveal">The shortest distance between talking<br />and understanding your assignment</p>
+  </section>
+
+  <!-- Product app -->
+  <section class="product reveal" id="product">
+    <div class="product__frame">
+      <div class="product__chrome">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="product__chrome-title">Nirva Tutor</span>
+      </div>
+
+      <div class="app-window">
+        <aside class="app-sidebar">
+          <div class="app-sidebar__head">
+            <span class="display app-sidebar__title">Assignment</span>
+            <span id="connDot" class="status-dot offline"></span>
+          </div>
+
+          <label class="upload" id="dropzone" for="pdfInput">
+            <input type="file" id="pdfInput" accept=".pdf" hidden />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span class="dropzone-title">Drop PDF here</span>
+            <span class="dropzone-hint">or click to browse</span>
+          </label>
+
+          <div id="docInfo" class="doc-badge hidden"></div>
+          <div id="pagesPreview" class="page-list"></div>
+
+          <div class="sidebar-block hidden" id="hintsCard">
+            <span class="label-xs">Try asking</span>
+            <div class="chips">
+              <button type="button" class="chip">starter structure kya hona chahiye?</button>
+              <button type="button" class="chip">input format kya hai?</button>
+              <button type="button" class="chip">pytest error debug karo</button>
+              <button type="button" class="chip">constraints kya hain?</button>
+            </div>
+          </div>
+
+          <div class="app-sidebar__foot">
+            <span id="statusPill" class="status-text">Upload PDF to begin</span>
+          </div>
+        </aside>
+
+        <div class="app-chat">
+          <div id="transcript" class="chat-feed">
+            <div class="chat-empty" id="emptyState">
+              <p class="display chat-empty__title">Talk in English or Hinglish</p>
+              <p class="chat-empty__text">Hold the mic and ask about requirements, starter code, or errors. Every PDF answer cites a page.</p>
+            </div>
+          </div>
+
+          <div class="composer">
+            <div class="composer__mic-wrap">
+              <button id="micBtn" class="mic-btn" disabled aria-label="Hold to talk">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+                <span class="mic-label">Hold</span>
+              </button>
+            </div>
+            <div class="composer__row">
+              <input type="text" id="textInput" placeholder="Type in English or Hinglish…" disabled />
+              <button id="sendBtn" class="btn btn--send" disabled>Send</button>
+            </div>
+            <button id="cancelBtn" class="link-btn" disabled>Stop speaking</button>
+          </div>
+        </div>
+
+        <aside class="app-inspector">
+          <div class="tabs">
+            <button class="tab active" data-tab="answer">Answer</button>
+            <button class="tab" data-tab="citations">Cites</button>
+            <button class="tab" data-tab="tools">Tools</button>
+            <button class="tab" data-tab="code">Code</button>
+          </div>
+          <div class="tab-panel active" id="panel-answer"><div id="reply" class="inspector-body"><p class="muted">Answer appears here.</p></div></div>
+          <div class="tab-panel" id="panel-citations"><div id="citations" class="inspector-body"><p class="muted">PDF citations here.</p></div></div>
+          <div class="tab-panel" id="panel-tools"><div id="tools" class="inspector-body"><p class="muted">Tool traces here.</p></div></div>
+          <div class="tab-panel" id="panel-code"><div id="codePanel" class="inspector-body"><p class="muted">Code suggestions here.</p></div></div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bento -->
+  <section class="section reveal" id="features">
+    <h2 class="section__title display">Learn what you meant to ask</h2>
+    <div class="bento">
+      <article class="bento__cell bento__cell--device card">
+        <div class="hardware hardware--sm">
+          <div class="hardware__grille mini" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="hardware__screen mini"><div class="hardware__wave mini"></div></div>
+        </div>
+        <h3 class="display">Voice-first</h3>
+        <p>Hinglish push-to-talk with Indian neural TTS.</p>
+      </article>
+      <article class="bento__cell bento__cell--langs card">
+        <ul class="lang-stack">
+          <li class="active">English</li>
+          <li>Hinglish</li>
+          <li>Hindi</li>
+          <li>Python · pytest</li>
+        </ul>
+        <h3 class="display">Multilingual</h3>
+        <p>Deepgram Nova-3 code-switching.</p>
+      </article>
+      <article class="bento__cell bento__cell--type card">
+        <div class="type-demo">Aa</div>
+        <h3 class="display">Citations</h3>
+        <p>Every requirement cites a PDF page.</p>
+      </article>
+      <article class="bento__cell bento__cell--wide card">
+        <div class="quote-demo">"page 2 ke hisaab se…"</div>
+        <h3 class="display">Grounded answers</h3>
+        <p>No invented constraints. Short speech, code in panel.</p>
+      </article>
+      <article class="bento__cell card">
+        <div class="icon-demo">&lt;/&gt;</div>
+        <h3 class="display">Code tools</h3>
+        <p>Read, run, patch — with visible traces.</p>
+      </article>
+      <article class="bento__cell card">
+        <div class="icon-demo">⛨</div>
+        <h3 class="display">Sandboxed</h3>
+        <p>Workspace-jailed commands only.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- Privacy -->
+  <section class="section section--tight reveal" id="privacy">
+    <h2 class="section__title display">Privacy is built into Nirva</h2>
+    <div class="trust-row">
+      <div class="trust-item card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <strong>Local RAG</strong>
+        <span>PDF on your server</span>
+      </div>
+      <div class="trust-item card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <strong>Your keys</strong>
+        <span>NVIDIA + Deepgram</span>
+      </div>
+      <div class="trust-item card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        <strong>No silent writes</strong>
+        <span>Diffs only</span>
+      </div>
+      <div class="trust-item card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <strong>Session scoped</strong>
+        <span>This chat only</span>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="hardware hardware--footer" aria-hidden="true">
+      <div class="hardware__grille mini"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="hardware__screen mini"><div class="hardware__wave mini"></div></div>
+    </div>
+    <h2 class="site-footer__wordmark display">Nirva</h2>
+    <div class="site-footer__meta">
+      <span>Voice · RAG · Tools · Hinglish</span>
+      <span>© 2026</span>
+    </div>
+  </footer>
+
+  <script src="/static/config.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

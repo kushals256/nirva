@@ -1,0 +1,43 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.log
+
+# App data (PDFs, Chroma, uploads)
+data/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node / Vercel
+node_modules/
+.vercel/
+
+# Test / cache
+.pytest_cache/
+workspace/.pytest_cache/
+workspace/Library/
+htmlcov/
+.coverage
+
+# Generated at deploy (Vercel injects API URL)
+frontend/config.js
