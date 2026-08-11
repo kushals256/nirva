@@ -20,9 +20,11 @@ Upload an assignment PDF, talk in English/Hinglish, get grounded answers with pa
 |---|---|
 | GitHub | https://github.com/kushals256/nirva |
 | Frontend (Vercel) | https://nirva-seven.vercel.app |
-| Backend (Render) | Deploy via `render.yaml` — see below |
+| Backend (Render) | https://nirva-api.onrender.com |
 
-**Note:** The Vercel site is the static frontend only. Voice chat, PDF upload, and RAG require the FastAPI backend on Render. Set `NIRVA_API_URL` in Vercel to your Render URL after deploying the backend.
+The Vercel frontend calls the Render backend via `NIRVA_API_URL` (set in Vercel project env).
+
+**Render free tier:** backend sleeps after inactivity (~50s cold start). Uploaded PDFs/Chroma data are ephemeral on free tier — upgrade to Starter + disk for persistence.
 
 ## Quick start (local)
 
