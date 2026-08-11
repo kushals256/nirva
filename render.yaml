@@ -1,13 +1,39 @@
 services:
   - type: web
-    name: voice-coding-tutor
+    name: nirva-api
     runtime: python
+    plan: free
+    repo: https://github.com/kushals256/nirva
+    branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    disk:
+      name: nirva-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: DATA_DIR
+        value: /var/data
+      - key: NVIDIA_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: NVIDIA_LLM_MODEL
+        value: meta/llama-3.1-8b-instruct
+      - key: NVIDIA_EMBED_MODEL
+        value: nvidia/nv-embedqa-e5-v5
+      - key: DEEPGRAM_MODEL
+        value: nova-3
+      - key: DEEPGRAM_LANGUAGE
+        value: multi
+      - key: TTS_VOICE
+        value: en-IN-NeerjaNeural
+      - key: TTS_VOICE_HINDI
+        value: hi-IN-SwaraNeural
+      - key: CORS_ORIGINS
+        value: https://nirva-seven.vercel.app,http://localhost:8000,http://127.0.0.1:8000
       - key: NVIDIA_API_KEY
         sync: false
       - key: DEEPGRAM_API_KEY
         sync: false
-      - key: CORS_ORIGINS
-        value: https://nirva-seven.vercel.app,https://frontend-nine-ashen-18.vercel.app

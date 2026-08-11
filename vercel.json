@@ -1,6 +1,7 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "node scripts/inject-config.js",
   "outputDirectory": "frontend",
   "framework": null,
+  "installCommand": "npm install --ignore-scripts",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

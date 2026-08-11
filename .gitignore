@@ -43,3 +43,4 @@ htmlcov/
 # Generated at deploy (Vercel injects API URL)
 frontend/config.js
 .vercel
+.env*

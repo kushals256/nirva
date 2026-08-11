@@ -26,7 +26,10 @@ class Settings(BaseSettings):
 
     data_dir: Path = PROJECT_ROOT / "data"
     workspace_dir: Path = PROJECT_ROOT / "workspace"
-    chroma_dir: Path = PROJECT_ROOT / "data" / "chroma"
+
+    @property
+    def chroma_dir(self) -> Path:
+        return self.data_dir / "chroma"
 
     run_command_timeout: int = 30
     allowed_commands: str = "python,pytest,python3"
