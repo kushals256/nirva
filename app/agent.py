@@ -35,6 +35,8 @@ Rules:
 
 _PAGE_REQUEST_RE = re.compile(
     r"\b(?:page\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)"
+    r"|(?:the\s+)?(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\s+page\b"
+    r"|(?:what'?s?|whats)\s+(?:is\s+)?(?:in|on)\s+(?:the\s+)?(?:page\s+)?(first|second|third|fourth|fifth|\d+)\b"
     r"|(?:explain|describe|tell me about)\s+(?:the\s+)?(first|second|third|fourth|fifth)\s+page)\b",
     re.I,
 )
@@ -47,19 +49,38 @@ _PAGE_WORDS: dict[str, int] = {
 
 _OVERVIEW_RE = re.compile(
     r"\b(whole pdf|entire pdf|full pdf|complete pdf|detailed explanation|detailed summary|detailed description|"
-    r"cover everything|go through|walkthrough|walk through|overview|summary of|what is in the pdf|what's in the pdf|"
+    r"cover everything|go through|walkthrough|walk through|overview|summary of|"
+    r"what(?:'?s| is) in (?:the )?pdf|whats in (?:the )?pdf|what(?:'?s| is) in (?:this|my|the) (?:assignment|document)|"
     r"everything in|explain the pdf|pdf content|all pages|page by page|pin to pin|full period|whole period|"
-    r"give me a summary|tell me everything)\b",
+    r"give me a summary|gimme (?:a )?summary|just (?:give me )?(?:a )?summary|summarize (?:the |this )?(?:pdf|document|assignment)?|"
+    r"tell me everything|describe (?:the )?pdf|pdf (?:mein|me) kya)\b",
     re.I,
 )
 
 _TOOL_LEAK_RE = re.compile(
     r"`?(search_pdf|get_page|quote_requirement|read_workspace_file|run_command|propose_patch|summarize_pdf)`?"
-    r"(?:\([^)]*\))?|\b(call|using|use)\s+(search_pdf|get_page|summarize_pdf)\b",
+    r"(?:\([^)]*\))?|\b(call|using|use)\s+(?:the\s+)?(search_pdf|get_page|summarize_pdf)\b",
+    re.I,
+)
+
+_META_REPLY_RE = re.compile(
+    r"\b(i will call|i'll call|i will first|i'll first|let me call|calling the|call the function|use the function|"
+    r"to answer (?:this |your )?question|i need to call|i will use|i'll use|let me (?:try|get|search)|"
+    r"function to get|without calling|first search the|search the uploaded)\b",
+    re.I,
+)
+
+_FAILURE_REPLY_RE = re.compile(
+    r"^sorry,?\s+(?:i couldn't generate an answer|main answer generate nahi kar paya)",
     re.I,
 )
 
 _sessions: dict[str, Session] = {}
+
+_AFFIRM_RE = re.compile(
+    r"^(?:ok(?:ay)?(?:\s+do(?:\s+it)?)?|yes|yeah|yep|sure|do it|go ahead|please(?: do)?|haan|haan karo|kar do)[\s!.]*$",
+    re.I,
+)
 
 _HINGLISH_MARKERS = re.compile(
     r"[\u0900-\u097F]|"
@@ -125,10 +146,32 @@ def _extract_requested_page(user_message: str) -> int | None:
     m = _PAGE_REQUEST_RE.search(user_message)
     if not m:
         return None
-    token = m.group(1).lower()
+    token = next((g.lower() for g in m.groups() if g), "")
     if token.isdigit():
         return int(token)
     return _PAGE_WORDS.get(token)
+
+
+def _is_meta_reply(text: str) -> bool:
+    if not text or len(text.strip()) < 8:
+        return True
+    if _META_REPLY_RE.search(text):
+        return True
+    stripped = _TOOL_LEAK_RE.sub("", text)
+    stripped = re.sub(r'"\s*"', "", stripped).strip()
+    if len(stripped) < 15:
+        return True
+    return bool(_META_REPLY_RE.search(stripped))
+
+
+def _is_usable_reply(text: str) -> bool:
+    if not text or not text.strip():
+        return False
+    if _is_meta_reply(text):
+        return False
+    if _FAILURE_REPLY_RE.search(text.strip()):
+        return False
+    return len(text.strip()) >= 12
 
 
 def _explain_from_citation(citation: Citation, user_message: str, llm_reply: str = "") -> str:
@@ -140,7 +183,7 @@ def _explain_from_citation(citation: Citation, user_message: str, llm_reply: str
     excerpt = re.sub(r"\s+", " ", citation.text).strip()
 
     tab_boilerplate = ("answer tab", "code tab", "cites tab", "breakdown", "dekho.", "see page")
-    if llm_reply and len(llm_reply) > 50:
+    if llm_reply and _is_usable_reply(llm_reply):
         lower = llm_reply.lower()
         if not any(p in lower for p in tab_boilerplate):
             if hinglish or not _looks_hinglish(llm_reply):
@@ -170,7 +213,8 @@ def _build_single_page_response(
     text = page_data.get("text", "")
     citation = Citation(page=page, text=text)
     title = _section_title_from_text(text, page)
-    reply = _explain_from_citation(citation, user_message)
+    draft = _explain_from_citation(citation, user_message)
+    reply = draft
     answer_detail = f"📄 Page {page} — {title}\n\n{text}"
     code_blocks = [f"# PDF page {page}\n{text}"] if text else []
     tool_calls = [
@@ -196,14 +240,128 @@ def _build_single_page_response(
 
 def _sanitize_reply(text: str) -> str:
     cleaned = _TOOL_LEAK_RE.sub("", text)
+    cleaned = re.sub(r'"\s*"', "", cleaned)
     cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
     cleaned = re.sub(r"\.\s*\.", ".", cleaned)
+    cleaned = re.sub(r"\s+\.", ".", cleaned)
+    if _is_meta_reply(cleaned):
+        return ""
     return cleaned
 
 
 def _section_title_from_text(text: str, page: int) -> str:
     match = re.search(r"Page\s+\d+\s*-\s*([^\n=]+)", text, re.I)
     return match.group(1).strip() if match else f"Page {page}"
+
+
+_PDF_SUMMARY_SYSTEM = """You summarize uploaded PDFs for students in plain language.
+
+Rules for your reply:
+- 4–6 sentences maximum.
+- Explain WHAT the document is about: purpose, topic, and how it's organized.
+- Do NOT read out raw text, names, emails, phone numbers, or table rows verbatim.
+- Do NOT use a "Page 1 says… Page 2 says…" format unless naming 2–3 major sections.
+- Assignments: mention tasks, deliverables, and constraints.
+- Rosters/lists/directories: say it's a directory and what kind of info it contains (don't list people).
+- Slides/reports: summarize the subject and key themes or experiments.
+- Speak naturally to the student. Never mention tools or functions."""
+
+
+def _outline_for_summary(sections: list[dict[str, Any]], max_pages: int = 16) -> str:
+    lines: list[str] = []
+    for s in sections[:max_pages]:
+        page = s.get("page", "?")
+        text = re.sub(r"\s+", " ", (s.get("text") or "")).strip()
+        title = s.get("title") or _section_title_from_text(text, page if isinstance(page, int) else 1)
+        if not text:
+            lines.append(f"- Page {page}: [{title}] (little extractable text — may be image-heavy)")
+            continue
+        snippet = text[:350]
+        if len(text) > 350:
+            snippet = snippet.rsplit(" ", 1)[0] + "…"
+        lines.append(f"- Page {page} [{title}]: {snippet}")
+    if len(sections) > max_pages:
+        lines.append(f"- … plus {len(sections) - max_pages} more pages")
+    return "\n".join(lines)
+
+
+def _fallback_pdf_summary(sections: list[dict[str, Any]], user_message: str) -> str:
+    n = len(sections)
+    sample = " ".join((s.get("text") or "") for s in sections[:4])
+    hinglish = _is_hinglish(user_message)
+
+    if re.search(r"@\S+\.\S+|email\s*id|student\s*name|house\b", sample, re.I):
+        if hinglish:
+            return (
+                f"Yeh {n}-page PDF ek student roster/directory lagta hai — "
+                f"names, emails, aur house assignments listed hain. "
+                f"Exact entries Answer tab mein page-by-page hain."
+            )
+        return (
+            f"This {n}-page PDF appears to be a student roster or directory listing "
+            f"names, email addresses, and house assignments. "
+            f"See the Answer tab for a page-by-page reference."
+        )
+
+    if re.search(r"experiment|CIFAR|neural network|presentation|agenda|methodology", sample, re.I):
+        if hinglish:
+            return (
+                f"Yeh {n}-page PDF ek technical presentation ya project report hai — "
+                f"experiments, methodology, aur results cover karta hai. "
+                f"Details Answer tab mein hain."
+            )
+        return (
+            f"This {n}-page PDF is a technical presentation or project report covering "
+            f"experiments, methodology, and results. "
+            f"See the Answer tab for page-by-page excerpts."
+        )
+
+    if hinglish:
+        return f"PDF mein {n} pages hain. Topic aur structure Answer tab mein page-by-page diya hai."
+    return (
+        f"Your PDF has {n} pages. "
+        f"I've put a page-by-page reference in the Answer tab — ask about a specific topic or page for more detail."
+    )
+
+
+def _generate_pdf_summary(sections: list[dict[str, Any]], user_message: str) -> str:
+    if not sections:
+        return (
+            "PDF se kuch text extract nahi ho paya."
+            if _is_hinglish(user_message)
+            else "I couldn't extract readable text from this PDF."
+        )
+
+    if not settings.nvidia_api_key:
+        return _fallback_pdf_summary(sections, user_message)
+
+    outline = _outline_for_summary(sections)
+    try:
+        client = _nvidia_client()
+        response = client.chat.completions.create(
+            model=settings.nvidia_llm_model,
+            messages=[
+                {"role": "system", "content": _PDF_SUMMARY_SYSTEM},
+                {"role": "system", "content": _language_instruction(user_message)},
+                {
+                    "role": "user",
+                    "content": (
+                        f"Student question: {user_message}\n\n"
+                        f"Document: {len(sections)} pages\n\n"
+                        f"Outline:\n{outline}"
+                    ),
+                },
+            ],
+            temperature=0.25,
+            max_tokens=400,
+        )
+        summary = _sanitize_reply(response.choices[0].message.content or "")
+        if summary and not _is_meta_reply(summary):
+            return _summarize_for_speech(summary, 650)
+    except Exception:
+        pass
+
+    return _fallback_pdf_summary(sections, user_message)
 
 
 def _build_overview_response(
@@ -214,39 +372,37 @@ def _build_overview_response(
 ) -> ChatResponse:
     sections = overview.get("sections", [])
     hinglish = _is_hinglish(user_message)
-    citations = [Citation(page=s["page"], text=s["text"]) for s in sections if s.get("text")]
-    code_blocks = [f"# PDF page {s['page']} — {s['title']}\n{s['text']}" for s in sections]
+    citations = [
+        Citation(page=s["page"], text=s["text"])
+        for s in sections[:5]
+        if s.get("text")
+    ]
+    code_blocks = [
+        f"# PDF page {s['page']} — {s['title']}\n{s['text']}"
+        for s in sections[:3]
+    ]
 
     lines: list[str] = []
     if hinglish:
-        lines.append(f"📚 Poora assignment PDF — {len(sections)} pages (page-by-page):")
+        lines.append(f"📚 PDF reference — {len(sections)} pages (page-by-page excerpts):")
     else:
-        lines.append(f"📚 Full assignment PDF — {len(sections)} pages (page-by-page):")
+        lines.append(f"📚 PDF reference — {len(sections)} pages (page-by-page excerpts):")
 
     for s in sections:
         lines.append("")
         lines.append(f"📄 Page {s['page']} — {s['title']}")
         preview = s["text"].replace("\n", " ").strip()
-        if len(preview) > 320:
+        if not preview:
+            lines.append("(No extractable text on this page — may be image-only.)")
+        elif len(preview) > 320:
             preview = preview[:319].rsplit(" ", 1)[0] + "…"
-        lines.append(preview)
+            lines.append(preview)
+        else:
+            lines.append(preview)
 
     answer_detail = "\n".join(lines)
 
-    first = sections[0] if sections else None
-    if hinglish:
-        speech = f"PDF mein {len(sections)} pages hain. "
-        if first:
-            speech += f"Page 1: {_summarize_for_speech(first['text'], 200)} "
-        for s in sections[1:3]:
-            speech += f"Page {s['page']}: {_summarize_for_speech(s['text'], 120)} "
-    else:
-        speech = f"Your PDF has {len(sections)} pages. "
-        if first:
-            speech += f"Page 1: {_summarize_for_speech(first['text'], 200)} "
-        for s in sections[1:3]:
-            speech += f"Page {s['page']}: {_summarize_for_speech(s['text'], 120)} "
-    speech = _summarize_for_speech(speech.strip(), 900)
+    speech = _generate_pdf_summary(sections, user_message)
 
     all_tool_calls.append(
         ToolCallRecord(name="summarize_pdf", arguments={}, result=json.dumps(overview, ensure_ascii=False)[:2000])
@@ -401,9 +557,6 @@ def _build_answer_detail(
     return "\n".join(lines)
 
 
-    return "\n".join(lines)
-
-
 def _wants_pdf_overview(user_message: str) -> bool:
     if not _OVERVIEW_RE.search(user_message):
         return False
@@ -414,12 +567,59 @@ def _wants_pdf_overview(user_message: str) -> bool:
     return True
 
 
+def _is_followup_affirmation(user_message: str, session: Session) -> bool:
+    if not _AFFIRM_RE.match(user_message.strip()):
+        return False
+    for msg in reversed(session.messages[:-1]):
+        if msg.role != "user":
+            continue
+        if _wants_pdf_overview(msg.text) or _extract_requested_page(msg.text):
+            return True
+        break
+    return False
+
+
+def _prior_user_pdf_intent(session: Session) -> tuple[bool, int | None]:
+    for msg in reversed(session.messages[:-1]):
+        if msg.role != "user":
+            continue
+        return _wants_pdf_overview(msg.text), _extract_requested_page(msg.text)
+    return False, None
+
+
 def _nvidia_client() -> OpenAI:
     return OpenAI(
         api_key=settings.nvidia_api_key,
         base_url=settings.nvidia_base_url,
         http_client=httpx.Client(trust_env=False),
     )
+
+
+def _force_answer_from_context(
+    messages: list[dict[str, Any]],
+    client: OpenAI,
+    user_message: str,
+) -> str:
+    """One final NVIDIA turn after tools — synthesize an answer, no more tool calls."""
+    messages.append(
+        {
+            "role": "system",
+            "content": (
+                "Using the tool results above, answer the student's question directly. "
+                "Do not call tools again. Do not describe what you will do — just answer. "
+                "Cite page numbers when relevant."
+            ),
+        }
+    )
+    response = client.chat.completions.create(
+        model=settings.nvidia_llm_model,
+        messages=messages,
+        tool_choice="none",
+        temperature=0.2,
+        top_p=0.7,
+        max_tokens=512,
+    )
+    return _sanitize_reply(response.choices[0].message.content or "")
 
 
 def chat(session_id: str | None, user_message: str, doc_id: str | None = None) -> ChatResponse:
@@ -432,6 +632,18 @@ def chat(session_id: str | None, user_message: str, doc_id: str | None = None) -
     session.messages.append(Message(role="user", text=user_message))
 
     active_doc = doc_id or session.doc_id or get_current_doc()
+
+    if _is_followup_affirmation(user_message, session) and active_doc:
+        wants_overview, prior_page = _prior_user_pdf_intent(session)
+        set_current_doc(active_doc)
+        if wants_overview:
+            overview = summarize_pdf(active_doc)
+            if overview.get("sections"):
+                return _build_overview_response(session, overview, user_message, [])
+        if prior_page:
+            page_data = get_page(prior_page, active_doc)
+            if page_data.get("text"):
+                return _build_single_page_response(session, page_data, user_message)
 
     page_n = _extract_requested_page(user_message)
     if active_doc and page_n:
@@ -490,13 +702,10 @@ def chat(session_id: str | None, user_message: str, doc_id: str | None = None) -
 
     final_reply = _sanitize_reply(final_reply)
 
-    if not final_reply:
-        if _reply_language(user_message) == "english":
-            final_reply = "Sorry, I couldn't generate an answer. Please try again."
-        else:
-            final_reply = "Sorry, main answer generate nahi kar paya. Please try again."
+    if not _is_usable_reply(final_reply) and all_tool_calls:
+        final_reply = _force_answer_from_context(messages, client, user_message)
 
-    spoken, code_blocks = _extract_code_blocks(final_reply)
+    spoken, code_blocks = _extract_code_blocks(final_reply if _is_usable_reply(final_reply) else "")
     code_blocks.extend(_code_blocks_from_tools(all_tool_calls))
     code_blocks.extend(_code_blocks_from_citations(all_citations))
 
@@ -516,6 +725,24 @@ def chat(session_id: str | None, user_message: str, doc_id: str | None = None) -
             seen_pages.add(c.page)
             unique_citations.append(c)
 
+    requested_page = _extract_requested_page(user_message)
+    if requested_page and active_doc:
+        for tc in all_tool_calls:
+            if tc.name != "get_page":
+                continue
+            try:
+                result = json.loads(tc.result)
+            except json.JSONDecodeError:
+                continue
+            if result.get("page") == requested_page and result.get("text"):
+                preferred = Citation(page=requested_page, text=result["text"])
+                unique_citations = [preferred] + [c for c in unique_citations if c.page != requested_page]
+                break
+        if not any(c.page == requested_page for c in unique_citations):
+            page_data = get_page(requested_page, active_doc)
+            if page_data.get("text"):
+                unique_citations.insert(0, Citation(page=requested_page, text=page_data["text"]))
+
     if not unique_citations and active_doc:
         result_str, cites = execute_tool("search_pdf", {"query": user_message[:200]})
         if cites:
@@ -526,15 +753,18 @@ def chat(session_id: str | None, user_message: str, doc_id: str | None = None) -
             code_blocks.extend(_code_blocks_from_citations(cites))
 
     answer_detail = _build_answer_detail(spoken, unique_citations, code_blocks, user_message)
-    if unique_citations:
-        reply = _explain_from_citation(unique_citations[0], user_message, spoken)
-    elif spoken and spoken not in ("[see code panel]", ""):
+
+    if _is_usable_reply(final_reply):
+        reply = _summarize_for_speech(spoken, 500)
+    elif unique_citations:
+        reply = _explain_from_citation(unique_citations[0], user_message, "")
+    elif spoken and spoken not in ("[see code panel]", "") and _is_usable_reply(spoken):
         reply = _summarize_for_speech(spoken, 500)
     else:
         reply = (
-            "PDF mein yeh detail nahi mili."
+            "Sorry, main answer generate nahi kar paya. Please try again."
             if _is_hinglish(user_message)
-            else "I couldn't find that in your PDF."
+            else "Sorry, I couldn't generate an answer. Please try again."
         )
 
     session.messages.append(

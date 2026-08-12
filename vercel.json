@@ -4,6 +4,7 @@
   "framework": null,
   "installCommand": "npm install --ignore-scripts",
   "rewrites": [
+    { "source": "/tutor", "destination": "/tutor.html" },
     { "source": "/static/:path*", "destination": "/:path*" },
     { "source": "/((?!.*\\.).*)", "destination": "/index.html" }
   ]

@@ -1,6 +1,10 @@
 const API = (window.NIRVA_CONFIG && window.NIRVA_CONFIG.API_BASE) || window.location.origin;
 const WS_URL = `${API.replace(/^http/, "ws")}/ws/voice`;
 
+if (!document.getElementById("micBtn")) {
+  // Not on tutor page — skip app init
+} else {
+
 let sessionId = null;
 let docId = null;
 let ws = null;
@@ -20,6 +24,20 @@ function setStatus(text, active = false) {
 
 function setConn(online) {
   $("connDot").className = `status-dot ${online ? "online" : "offline"}`;
+  const label = $("connLabel");
+  if (label) label.textContent = online ? "Connected" : "Offline";
+}
+
+function showThinking() {
+  const el = $("thinking");
+  if (el) {
+    el.classList.remove("hidden");
+    $("transcript").scrollTop = $("transcript").scrollHeight;
+  }
+}
+
+function hideThinking() {
+  $("thinking")?.classList.add("hidden");
 }
 
 function stopAudio() {
@@ -75,12 +93,26 @@ function hideEmptyState() {
 }
 
 function appendTranscript(role, text) {
+  hideThinking();
   hideEmptyState();
   const div = document.createElement("div");
   div.className = `bubble ${role}`;
-  div.innerHTML = `<div class="label">${role === "user" ? "You" : "Tutor"}</div>${escapeHtml(text)}`;
-  $("transcript").appendChild(div);
-  $("transcript").scrollTop = $("transcript").scrollHeight;
+  const initial = role === "user" ? "Y" : "T";
+  const avatarClass = role === "user" ? "avatar--user" : "avatar--tutor";
+  const label = role === "user" ? "You" : "Tutor";
+  div.innerHTML = `
+    <div class="bubble__row">
+      <span class="avatar ${avatarClass}">${initial}</span>
+      <div class="bubble__content">
+        <div class="label">${label}</div>
+        ${escapeHtml(text)}
+      </div>
+    </div>`;
+  const thinking = $("thinking");
+  const feed = $("transcript");
+  if (thinking) feed.insertBefore(div, thinking);
+  else feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
 }
 
 function formatDetail(text) {
@@ -88,16 +120,34 @@ function formatDetail(text) {
     .split("\n")
     .map((line) => {
       if (!line.trim()) return "<br />";
+      if (line.startsWith("📚")) return `<p class="answer-head answer-head--section">${escapeHtml(line)}</p>`;
       if (line.startsWith("📄")) return `<p class="answer-head">${escapeHtml(line)}</p>`;
       if (line.startsWith("Kahan:") || line.startsWith("Where:")) {
         return `<p class="answer-where">${escapeHtml(line).replace(/`([^`]+)`/g, "<code>$1</code>")}</p>`;
       }
-      if (line.startsWith("Kya ") || line.startsWith("What ") || line.startsWith("Code ") || line.startsWith("Aur ") || line.startsWith("Related ")) {
+      if (line.startsWith("Kya ") || line.startsWith("What ") || line.startsWith("Code ") || line.startsWith("Aur ") || line.startsWith("Related ") || line.startsWith("Explanation:")) {
         return `<p class="answer-meta">${escapeHtml(line)}</p>`;
       }
       return `<p>${escapeHtml(line)}</p>`;
     })
     .join("");
+}
+
+function updateTabBadges(cites, tools, codeCount) {
+  const citeBadge = $("badgeCites");
+  const toolBadge = $("badgeTools");
+  if (citeBadge) {
+    if (cites > 0) {
+      citeBadge.textContent = cites;
+      citeBadge.classList.remove("hidden");
+    } else citeBadge.classList.add("hidden");
+  }
+  if (toolBadge) {
+    if (tools > 0) {
+      toolBadge.textContent = tools;
+      toolBadge.classList.remove("hidden");
+    } else toolBadge.classList.add("hidden");
+  }
 }
 
 function showReply(data) {
@@ -114,12 +164,20 @@ function showReply(data) {
   if (!hasCites) {
     citesEl.innerHTML = '<p class="muted">No citations for this answer.</p>';
   } else {
-    data.citations.forEach((c) => {
+    const MAX_CITES = 8;
+    const cites = data.citations.slice(0, MAX_CITES);
+    cites.forEach((c) => {
       const el = document.createElement("div");
       el.className = "cite";
       el.innerHTML = `<div class="page-badge">Page ${c.page}</div><div>${escapeHtml(c.text.slice(0, 220))}${c.text.length > 220 ? "…" : ""}</div>`;
       citesEl.appendChild(el);
     });
+    if (data.citations.length > MAX_CITES) {
+      const note = document.createElement("p");
+      note.className = "muted code-more";
+      note.textContent = `+ ${data.citations.length - MAX_CITES} more pages — see Answer tab for full walkthrough.`;
+      citesEl.appendChild(note);
+    }
   }
 
   const toolsEl = $("tools");
@@ -142,11 +200,14 @@ function showReply(data) {
 
   const codeEl = $("codePanel");
   codeEl.innerHTML = "";
-  const hasCode = (data.code_blocks || []).length > 0;
+  const allBlocks = data.code_blocks || [];
+  const MAX_CODE_BLOCKS = 3;
+  const blocks = allBlocks.slice(0, MAX_CODE_BLOCKS);
+  const hasCode = blocks.length > 0;
   if (!hasCode) {
     codeEl.innerHTML = '<p class="muted">No code in this reply.</p>';
   } else {
-    data.code_blocks.forEach((code) => {
+    blocks.forEach((code) => {
       const wrap = document.createElement("div");
       wrap.className = "code-block";
       const pre = document.createElement("pre");
@@ -163,12 +224,26 @@ function showReply(data) {
       wrap.appendChild(pre);
       codeEl.appendChild(wrap);
     });
+    if (allBlocks.length > MAX_CODE_BLOCKS) {
+      const note = document.createElement("p");
+      note.className = "muted code-more";
+      note.textContent = `+ ${allBlocks.length - MAX_CODE_BLOCKS} more page(s) — see Answer or Cites tab.`;
+      codeEl.appendChild(note);
+    }
   }
 
-  if (hasCode) switchTab("code");
+  const isOverview = (data.tool_calls || []).some((t) => t.name === "summarize_pdf");
+  if (isOverview || allBlocks.length > MAX_CODE_BLOCKS) switchTab("answer");
+  else if (hasCode) switchTab("code");
   else if (hasCites) switchTab("citations");
   else if (hasTools) switchTab("tools");
   else switchTab("answer");
+
+  updateTabBadges(
+    (data.citations || []).length,
+    (data.tool_calls || []).length,
+    allBlocks.length,
+  );
 }
 
 function escapeHtml(s) {
@@ -196,7 +271,7 @@ function connectWs() {
 
   ws.onopen = () => {
     setConn(true);
-    setStatus("Connected — hold mic to talk");
+    setStatus("Connected — hold mic or type");
   };
   ws.onclose = () => {
     setConn(false);
@@ -215,20 +290,50 @@ function connectWs() {
       };
       const active = ["transcribing", "thinking", "speaking"].includes(data.status);
       setStatus(labels[data.status] || data.status, active);
+      if (data.status === "thinking") showThinking();
+      else if (data.status === "idle" || data.status === "speaking") hideThinking();
     }
     if (data.type === "transcript") appendTranscript("user", data.text);
     if (data.type === "reply") {
+      hideThinking();
       appendTranscript("assistant", data.text);
       showReply(data);
     }
     if (data.type === "audio_out") playAudioBase64(data.audio, data.format || "mp3");
     if (data.type === "error") {
+      hideThinking();
       setStatus(data.message || "Something went wrong");
       appendTranscript("assistant", data.message || "Something went wrong. Please try again.");
       return;
     }
     if (data.type === "cancelled") setStatus("Cancelled");
   };
+}
+
+const DEFAULT_PROMPTS = [
+  "whats in the pdf?",
+  "constraints kya hain?",
+  "input format kya hai?",
+  "summarize the assignment",
+];
+
+function renderSuggestedPrompts(prompts) {
+  const container = $("promptChips");
+  if (!container) return;
+  const list = (prompts && prompts.length) ? prompts.slice(0, 4) : DEFAULT_PROMPTS;
+  container.innerHTML = "";
+  list.forEach((text) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip";
+    btn.textContent = text;
+    btn.addEventListener("click", () => {
+      if ($("textInput").disabled) return;
+      sendText(text);
+    });
+    container.appendChild(btn);
+  });
+  $("hintsCard").classList.remove("hidden");
 }
 
 async function uploadPdf(file) {
@@ -248,8 +353,14 @@ async function uploadPdf(file) {
   docId = data.document.id;
 
   $("docInfo").classList.remove("hidden");
-  $("docInfo").innerHTML = `<strong>${escapeHtml(data.document.filename)}</strong><br>${data.document.pages} pages loaded`;
+  $("docInfo").innerHTML = `
+    <div class="doc-card__name">${escapeHtml(data.document.filename)}</div>
+    <div class="doc-card__meta">
+      <span class="doc-card__pages">${data.document.pages} pages</span>
+      <span class="doc-card__tag">Ready</span>
+    </div>`;
 
+  $("dropzone").classList.add("is-loaded");
   $("dropzone").querySelector(".dropzone-title").textContent = "PDF loaded";
   $("dropzone").querySelector(".dropzone-hint").textContent = "Click to replace";
 
@@ -257,7 +368,7 @@ async function uploadPdf(file) {
     .map((p) => `<div class="page-item"><strong>P${p.page}</strong> ${escapeHtml(p.preview)}</div>`)
     .join("");
 
-  $("hintsCard").classList.remove("hidden");
+  renderSuggestedPrompts(data.suggested_prompts);
   $("micBtn").disabled = false;
   $("textInput").disabled = false;
   $("sendBtn").disabled = false;
@@ -321,7 +432,6 @@ async function startRecording() {
     isRecording = true;
     window.setWaveActive?.(true);
     $("micBtn").classList.add("recording");
-    $("micBtn").querySelector(".mic-label").textContent = "Listening…";
     setStatus("Listening…", true);
   } catch {
     setStatus("Mic permission denied");
@@ -334,7 +444,6 @@ function stopRecording() {
   isRecording = false;
   window.setWaveActive?.(false);
   $("micBtn").classList.remove("recording");
-  $("micBtn").querySelector(".mic-label").textContent = "Hold";
   setStatus("Processing…", true);
 }
 
@@ -345,6 +454,7 @@ async function sendText(textOverride) {
   appendTranscript("user", text);
   if (!textOverride) $("textInput").value = "";
   setStatus("Thinking…", true);
+  showThinking();
 
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: "text", text, session_id: sessionId, doc_id: docId }));
@@ -367,6 +477,7 @@ async function sendText(textOverride) {
     showReply({ ...data, text: data.reply });
     setStatus("Ready — hold mic to talk");
   } catch (e) {
+    hideThinking();
     setStatus(`Error: ${e.message}`);
     appendTranscript("assistant", "Sorry, something went wrong. Please try again.");
   }
@@ -382,14 +493,6 @@ dropzone.addEventListener("drop", (e) => {
   e.preventDefault();
   dropzone.classList.remove("dragover");
   uploadPdf(e.dataTransfer.files[0]);
-});
-
-// Prompt chips
-document.querySelectorAll(".chip").forEach((chip) => {
-  chip.addEventListener("click", () => {
-    if ($("textInput").disabled) return;
-    sendText(chip.textContent);
-  });
 });
 
 // Mic
@@ -412,74 +515,4 @@ $("cancelBtn").addEventListener("click", () => {
 
 window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 
-// Waveform on hero device — abstract cyan dithered curves
-(function initWaveform() {
-  const canvas = document.getElementById("waveCanvas");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  let phase = 0;
-  let active = false;
-
-  function ditherPixel(x, y) {
-    return ((x + y * 7) & 3) === 0 ? 0.15 : 0;
-  }
-
-  function draw() {
-    const { width, height } = canvas;
-    ctx.clearRect(0, 0, width, height);
-
-    // Flowing abstract bands (Monologue-style)
-    const layers = [
-      { color: "rgba(0, 212, 255, 0.55)", amp: 28, freq: 0.018, yOff: height * 0.38 },
-      { color: "rgba(0, 160, 200, 0.35)", amp: 22, freq: 0.024, yOff: height * 0.52 },
-      { color: "rgba(0, 100, 140, 0.25)", amp: 18, freq: 0.012, yOff: height * 0.62 },
-    ];
-
-    layers.forEach((layer, li) => {
-      ctx.beginPath();
-      ctx.fillStyle = layer.color;
-      ctx.moveTo(0, height);
-      for (let x = 0; x <= width; x += 2) {
-        const drift = Math.sin(x * layer.freq + phase + li) * layer.amp;
-        const ripple = Math.sin(x * 0.06 + phase * 1.4) * (active ? 10 : 4);
-        const y = layer.yOff + drift + ripple;
-        ctx.lineTo(x, y);
-      }
-      ctx.lineTo(width, height);
-      ctx.closePath();
-      ctx.fill();
-    });
-
-    // Stipple overlay
-    const step = active ? 3 : 4;
-    for (let y = 0; y < height; y += step) {
-      for (let x = 0; x < width; x += step) {
-        if (Math.random() > (active ? 0.72 : 0.88)) {
-          ctx.fillStyle = `rgba(255,255,255,${0.08 + ditherPixel(x, y)})`;
-          ctx.fillRect(x, y, 1, 1);
-        }
-      }
-    }
-
-    phase += active ? 0.035 : 0.012;
-    requestAnimationFrame(draw);
-  }
-
-  window.setWaveActive = (on) => { active = on; };
-  draw();
-})();
-
-// Scroll reveal
-(function initReveal() {
-  const els = document.querySelectorAll(".reveal");
-  if (!els.length) return;
-  const io = new IntersectionObserver(
-    (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add("visible")),
-    { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
-  );
-  els.forEach((el) => io.observe(el));
-  // Hero visible immediately
-  document.querySelectorAll(".hero .reveal").forEach((el) => {
-    setTimeout(() => el.classList.add("visible"), 80);
-  });
-})();
+} // end tutor page guard

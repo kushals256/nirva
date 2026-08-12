@@ -21,6 +21,7 @@ from app.pdf_ingest import (
     save_document_meta,
     save_pages_cache,
 )
+from app.suggestions import generate_suggested_prompts
 from app.rag import get_rag_store
 from app.tools import set_current_doc
 from app.tts import router as tts_router
@@ -84,7 +85,8 @@ async def upload_pdf(file: UploadFile = File(...)) -> UploadResponse:
 
     set_current_doc(document.id)
     preview = [{"page": p["page"], "preview": p["text"][:200]} for p in pages[:5]]
-    return UploadResponse(document=document, pages_preview=preview)
+    prompts = generate_suggested_prompts(pages, filename=file.filename or "")
+    return UploadResponse(document=document, pages_preview=preview, suggested_prompts=prompts)
 
 
 @app.get("/api/documents/{doc_id}/pages")
@@ -127,6 +129,12 @@ async def ws_voice(
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "index.html")
+
+
+@app.get("/tutor")
+@app.get("/tutor.html")
+async def tutor() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "tutor.html")
 
 
 if FRONTEND_DIR.exists():

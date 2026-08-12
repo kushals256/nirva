@@ -69,3 +69,4 @@ class ChatResponse(BaseModel):
 class UploadResponse(BaseModel):
     document: Document
     pages_preview: list[dict[str, Any]]
+    suggested_prompts: list[str] = Field(default_factory=list)
