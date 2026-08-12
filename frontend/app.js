@@ -97,17 +97,10 @@ function appendTranscript(role, text) {
   hideEmptyState();
   const div = document.createElement("div");
   div.className = `bubble ${role}`;
-  const initial = role === "user" ? "Y" : "T";
-  const avatarClass = role === "user" ? "avatar--user" : "avatar--tutor";
   const label = role === "user" ? "You" : "Tutor";
   div.innerHTML = `
-    <div class="bubble__row">
-      <span class="avatar ${avatarClass}">${initial}</span>
-      <div class="bubble__content">
-        <div class="label">${label}</div>
-        ${escapeHtml(text)}
-      </div>
-    </div>`;
+    <div class="bubble__label">${label}</div>
+    <div class="bubble__text">${escapeHtml(text)}</div>`;
   const thinking = $("thinking");
   const feed = $("transcript");
   if (thinking) feed.insertBefore(div, thinking);
@@ -169,7 +162,7 @@ function showReply(data) {
     cites.forEach((c) => {
       const el = document.createElement("div");
       el.className = "cite";
-      el.innerHTML = `<div class="page-badge">Page ${c.page}</div><div>${escapeHtml(c.text.slice(0, 220))}${c.text.length > 220 ? "…" : ""}</div>`;
+      el.innerHTML = `<span class="cite__page">Page ${c.page}</span><blockquote class="cite__excerpt">${escapeHtml(c.text.slice(0, 220))}${c.text.length > 220 ? "…" : ""}</blockquote>`;
       citesEl.appendChild(el);
     });
     if (data.citations.length > MAX_CITES) {
@@ -365,10 +358,17 @@ async function uploadPdf(file) {
   $("dropzone").querySelector(".dropzone-hint").textContent = "Click to replace";
 
   $("pagesPreview").innerHTML = data.pages_preview
-    .map((p) => `<div class="page-item"><strong>P${p.page}</strong> ${escapeHtml(p.preview)}</div>`)
+    .map((p) => `<div class="page-item"><span class="page-pill">p.${p.page}</span><span class="page-preview">${escapeHtml(p.preview)}</span></div>`)
     .join("");
 
   renderSuggestedPrompts(data.suggested_prompts);
+
+  const sidebar = $("sidebarDetails");
+  if (sidebar && !window.matchMedia("(min-width: 769px)").matches) {
+    sidebar.open = true;
+    sidebar.dataset.userToggled = "1";
+  }
+
   $("micBtn").disabled = false;
   $("textInput").disabled = false;
   $("sendBtn").disabled = false;
@@ -514,5 +514,29 @@ $("cancelBtn").addEventListener("click", () => {
 });
 
 window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+
+function initResponsiveSidebar() {
+  const details = $("sidebarDetails");
+  if (!details) return;
+
+  const desktopMq = window.matchMedia("(min-width: 769px)");
+  const sync = () => {
+    if (desktopMq.matches) {
+      details.open = true;
+      delete details.dataset.userToggled;
+    } else if (!details.dataset.userToggled) {
+      details.open = false;
+    }
+  };
+
+  details.addEventListener("toggle", () => {
+    if (!desktopMq.matches) details.dataset.userToggled = "1";
+  });
+
+  desktopMq.addEventListener("change", sync);
+  sync();
+}
+
+initResponsiveSidebar();
 
 } // end tutor page guard

@@ -2,12 +2,13 @@
 <html lang="en" class="tutor-html">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Nirva Tutor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/tutor.css" />
   <script src="/static/config.js"></script>
 </head>
 <body class="tutor-page">
@@ -22,30 +23,25 @@
   </header>
 
   <main class="tutor-main">
-    <div class="product__frame product__frame--full">
-      <div class="product__chrome">
-        <div class="traffic-lights" aria-hidden="true">
-          <span class="traffic-light traffic-light--close"></span>
-          <span class="traffic-light traffic-light--minimize"></span>
-          <span class="traffic-light traffic-light--maximize"></span>
-        </div>
-        <span class="product__chrome-title">Nirva Tutor</span>
-      </div>
-
-      <div class="app-window app-window--full">
+    <div class="tutor-shell">
+      <div class="app-window">
         <aside class="app-sidebar">
-          <div class="app-sidebar__head">
-            <span class="app-sidebar__title">Assignment</span>
-          </div>
+          <details class="sidebar-details" id="sidebarDetails">
+            <summary class="app-sidebar__head app-sidebar__summary">
+              <span class="app-sidebar__title">Your PDF</span>
+              <span class="sidebar-chevron" aria-hidden="true">›</span>
+            </summary>
 
-          <div class="sidebar-scroll">
+            <div class="sidebar-scroll">
             <label class="upload" id="dropzone" for="pdfInput">
               <input type="file" id="pdfInput" accept=".pdf" hidden />
               <div class="upload__icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
-              <span class="dropzone-title">Drop PDF here</span>
-              <span class="dropzone-hint">or click to browse</span>
+              <div class="upload__copy">
+                <span class="dropzone-title">Drop PDF here</span>
+                <span class="dropzone-hint">or click to browse</span>
+              </div>
             </label>
 
             <div id="docInfo" class="doc-card hidden"></div>
@@ -55,7 +51,8 @@
               <span class="label-xs">Try asking</span>
               <div class="chips" id="promptChips"></div>
             </div>
-          </div>
+            </div>
+          </details>
 
           <div class="app-sidebar__foot">
             <span id="statusPill" class="status-pill">Upload PDF to begin</span>
@@ -64,7 +61,7 @@
 
         <div class="app-chat">
           <div class="chat-header">
-            <span class="chat-header__title">Conversation</span>
+            <span class="chat-header__title">Chat</span>
             <span class="chat-header__hint">English · Hinglish</span>
           </div>
 
@@ -85,13 +82,8 @@
               </ol>
             </div>
             <div id="thinking" class="bubble assistant thinking hidden" aria-live="polite">
-              <div class="bubble__row">
-                <span class="avatar avatar--tutor">T</span>
-                <div class="bubble__content">
-                  <div class="label">Tutor</div>
-                  <span class="thinking-dots"><span></span><span></span><span></span></span>
-                </div>
-              </div>
+              <div class="bubble__label">Tutor</div>
+              <span class="thinking-dots"><span></span><span></span><span></span></span>
             </div>
           </div>
 

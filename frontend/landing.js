@@ -16,9 +16,9 @@
     ctx.clearRect(0, 0, width, height);
 
     const layers = [
-      { color: "rgba(0, 212, 255, 0.55)", amp: 28, freq: 0.018, yOff: height * 0.38 },
-      { color: "rgba(0, 160, 200, 0.35)", amp: 22, freq: 0.024, yOff: height * 0.52 },
-      { color: "rgba(0, 100, 140, 0.25)", amp: 18, freq: 0.012, yOff: height * 0.62 },
+      { color: "rgba(196, 165, 116, 0.45)", amp: 28, freq: 0.018, yOff: height * 0.38 },
+      { color: "rgba(160, 130, 90, 0.3)", amp: 22, freq: 0.024, yOff: height * 0.52 },
+      { color: "rgba(120, 95, 65, 0.22)", amp: 18, freq: 0.012, yOff: height * 0.62 },
     ];
 
     layers.forEach((layer, li) => {
