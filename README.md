@@ -22,6 +22,8 @@ Upload an assignment PDF, talk in English/Hinglish, get grounded answers with pa
 | Frontend (Vercel) | https://nirva-seven.vercel.app |
 | Backend (Render) | https://nirva-api.onrender.com |
 
+**Docs:** [docs/](docs/README.md) — quickstart, how the agent loop works, API reference, troubleshooting.
+
 The Vercel frontend calls the Render backend via `NIRVA_API_URL` (set in Vercel project env).
 
 **Render free tier:** backend sleeps after inactivity (~50s cold start). Uploaded PDFs/Chroma data are ephemeral on free tier — upgrade to Starter + disk for persistence.
